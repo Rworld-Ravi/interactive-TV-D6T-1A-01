@@ -7,6 +7,7 @@ import logging
 import atexit
 import smbus
 import time
+import numpy
 
 # from gpiozero import Button
 
@@ -16,6 +17,11 @@ videoStatus = "fadeIn"
 alpha = 255
 fadeInSpeed = 1
 fadeOutSpeed = 0.5
+
+readings = numpy.array([])
+max_samples = 20
+avg = 0
+firstTimeCalibration = True
 
 i2c = smbus.SMBus(1)
 addr=0x0a
@@ -37,27 +43,51 @@ def goodbye():
 #         status = "fadeOut"
 #     # print("local status:",status)
 
+
+
+
 def checkSensor():
     global sensorStatus
+    global readings, avg, firstTimeCalibration
+
+    if(firstTimeCalibration):
+        for x in range(0,max_samples-1):
+            data = i2c.read_i2c_block_data(addr,0x4c,5)
+            temp = (data[3]*256 +data[2])/10.0
+            readings = numpy.append(readings, temp)
+            avg = numpy.mean(readings)
+            print("avg Temp ",avg)
+            sleep(0.5)
+        firstTimeCalibration = False
+
 
     data = i2c.read_i2c_block_data(addr,0x4c,5)
     Device_temp=(data[1]*256 +data[0])/10.0
     # Device_temp=27
     temp = (data[3]*256 +data[2])/10.0
+
     print("--------------------------")
+    print(sensorStatus)
     print("device Temp ",Device_temp)
+    print("avg Temp ",avg)
     print("detect Temp ","\x1b[K\x1b[48;5;88m"+str(temp)+"\x1b[0m")
-    print("check error code", data[4])
+    # print("check error code", data[4])
 
     if(data[4]>0):
-        if temp>27.5:
+        if (temp-avg)>0.3:
             sensorStatus = "triggered"
         else:
             sensorStatus = "notTriggered"
+            readings = numpy.append(readings, temp)
+            print(readings)
+            avg = numpy.mean(readings)
+            if len(readings) == max_samples:
+                readings = numpy.delete(readings, 0)
         # sensor error
     else:
         print("sensor error")
         exit(0)
+        #todo: relaunch python or rpi
 
 
 
@@ -65,8 +95,8 @@ def checkSensor():
 VIDEO_1_PATH = "/home/pi/Desktop/TestVideo_Left.mp4"
 # player_log = logging.getLogger("Player 1")
 # player = OMXPlayer(VIDEO_1_PATH, args=['--orientation', '90'])
-# player = OMXPlayer(VIDEO_1_PATH, args=['--loop', '--no-osd','--orientation', '90' , '-b'])
-player = OMXPlayer(VIDEO_1_PATH, args=['--loop']) #debug for showing text
+player = OMXPlayer(VIDEO_1_PATH, args=['--loop', '--no-osd','--orientation', '90' , '-b'])
+# player = OMXPlayer(VIDEO_1_PATH, args=['--loop']) #debug for showing text
 
 
 sleep(2.5)
