@@ -11,9 +11,11 @@ import time
 # from gpiozero import Button
 
 # button = Button(2)
-status = "fadeIn"
+sensorStatus = "notTriggered"
+videoStatus = "fadeIn"
 alpha = 255
-fadeSpeed = 1
+fadeInSpeed = 1
+fadeOutSpeed = 0.5
 
 i2c = smbus.SMBus(1)
 addr=0x0a
@@ -36,7 +38,7 @@ def goodbye():
 #     # print("local status:",status)
 
 def checkSensor():
-    global status
+    global sensorStatus
 
     data = i2c.read_i2c_block_data(addr,0x4c,5)
     Device_temp=(data[1]*256 +data[0])/10.0
@@ -46,11 +48,12 @@ def checkSensor():
     print("device Temp ",Device_temp)
     print("detect Temp ","\x1b[K\x1b[48;5;88m"+str(temp)+"\x1b[0m")
     print("check error code", data[4])
+
     if(data[4]>0):
         if temp>27.5:
-            status = "fadeIn"
+            sensorStatus = "triggered"
         else:
-            status = "fadeOut"
+            sensorStatus = "notTriggered"
         # sensor error
     else:
         print("sensor error")
@@ -82,17 +85,23 @@ while True:
         checkSensor()
         lastTime=milli_sec
 
-    if(status == "fadeIn"):
-        if(alpha < 255):
-            alpha+=fadeSpeed
-        else:
+    if(sensorStatus == "triggered"):
+        videoStatus = "fadeIn"
+
+
+    if(videoStatus == "fadeIn"):
+        if(alpha >= 255):
             alpha = 255
-    elif(status == "fadeOut"):
+            videoStatus = "fadeOut"
+        else:
+            alpha+=fadeInSpeed
+
+    elif(videoStatus == "fadeOut"):
         if(alpha>0):
-            alpha-=fadeSpeed
+            alpha-=fadeOutSpeed
         else:
             alpha = 0
-
+    # print("alpha", alpha)
     player.set_alpha(alpha)
 
     # print("global status:",status)
