@@ -8,6 +8,7 @@ import atexit
 import smbus
 import time
 import numpy
+import os
 
 # from gpiozero import Button
 
@@ -85,8 +86,11 @@ def checkSensor():
                 readings = numpy.delete(readings, 0)
         # sensor error
     else:
-        print("sensor error")
-        exit(0)
+        print("sensor error, restarting pi")
+        sensorStatus = "notTriggered"
+        os.system('sudo shutdown -r now')
+
+        # exit(0)
         #todo: relaunch python or rpi
 
 
@@ -112,8 +116,13 @@ while True:
     # checkButton()
     milli_sec = int(round(time.time() * 1000))
     if((milli_sec-lastTime)>500):
-        checkSensor()
-        lastTime=milli_sec
+        try:
+            checkSensor()
+            lastTime=milli_sec
+        except IOError:
+            print("IO(sensor) error, restarting pi")
+            os.system('sudo shutdown -r now')
+
 
     if(sensorStatus == "triggered"):
         videoStatus = "fadeIn"
